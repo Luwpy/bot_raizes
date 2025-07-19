@@ -10,7 +10,7 @@ services:
       - POSTGRES_PASSWORD=acessoaoadmin
       - POSTGRES_DB=volley_db
     volumes:
-      - ./app:/usr/src/app
+      - raizes_db:/home/luwpy/.sql/postgres
 
 volumes:
-  db_data:
+  raizes_db:

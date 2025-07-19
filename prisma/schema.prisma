@@ -1,7 +1,8 @@
-// schema.prisma
+// ============================
+// 📑 GLOBAL CONFIG
+// ============================
 generator client {
-  provider        = "prisma-client-js"
-  //previewFeatures = ["prismaSchemaFolder"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -9,50 +10,214 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Guild {
-  id       String         @id @unique
-  channels GuildChannel[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  members Member[]
-
-  @@map("guilds")
-}
-
-model GuildChannel {
-  name String @id
-
-  id  String 
-  url String
-
-  type ChannelType
-
-  guild   Guild  @relation(fields: [guildId], references: [id])
-  guildId String
-
-  @@map("guild_channels")
-}
-
-model Member {
-  id      String
-  guildId String
-  guild   Guild  @relation(fields: [guildId], references: [id])
-
-  xp Int
-  money Int
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@id([id, guildId])
-  @@map("members")
-}
-
+// ============================
+// 📊 ENUMS
+// ============================
 enum ChannelType {
   LOG
   GENERAL
   TICKETS
   ANNOUNCEMENTS
+}
+
+enum StorageType {
+  BAG    // Mochila — Itens usáveis, limitado pela aplicação
+  CHEST  // Baú — Armazenamento, sem limite
+}
+
+enum ItemRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum ItemType {
+  CONSUMABLE
+  WEAPON
+  ARMOR
+  KEYITEM
+}
+
+// ============================
+// 📦 SISTEMA DE GUILDA
+// ============================
+model Guild {
+  id        String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  channels GuildChannel[]
+  members  Member[]
+  shops    Shop[]
+  
+  @@map("guilds")
+}
+
+model GuildChannel {
+  id      String      @id
+  name    String
+  url     String
+  type    ChannelType
+  guildId String
+  
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  
+  @@index([guildId])
+  @@map("guild_channels")
+}
+
+// ============================
+// 🧑‍🤝‍🧑 SISTEMA DE MEMBROS
+// ============================
+model Member {
+  id       String
+  guildId  String
+  xp       Int      @default(0)
+  money    Int      @default(0)
+  sentence String?  // Corrigido: removido campo duplicado "setence"
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  guild            Guild            @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  inventory        Inventory?
+  transactionLogs  TransactionLog[]
+  
+  @@id([id, guildId])
+  @@index([guildId])
+  @@index([xp])     // Para rankings de XP
+  @@index([money])  // Para rankings de dinheiro
+  @@map("members")
+}
+
+// ============================
+// 🎒 SISTEMA DE INVENTÁRIO OTIMIZADO
+// ============================
+model Inventory {
+  id       String @id @default(cuid())
+  memberId String
+  guildId  String
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  member Member          @relation(fields: [memberId, guildId], references: [id, guildId], onDelete: Cascade)
+  items  InventoryItem[]
+  
+  @@unique([memberId, guildId])
+  @@map("inventories")
+}
+
+model InventoryItem {
+  id          String      @id @default(cuid())
+  inventoryId String
+  itemId      String
+  quantity    Int         @default(1)
+  storage     StorageType @default(BAG)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  inventory Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  item      Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  @@unique([inventoryId, itemId, storage])
+  @@index([inventoryId])
+  @@index([itemId])
+  @@index([storage])
+  @@map("inventory_items")
+}
+
+// ============================
+// 🗡️ SISTEMA DE ITENS OTIMIZADO
+// ============================
+model Item {
+  id          String     @id @default(cuid())
+  name        String     @unique  // Nomes únicos para facilitar buscas
+  rarity      ItemRarity
+  type        ItemType
+  description String
+  price       Int
+  
+  // Campos opcionais para RPG
+  value       Int?       // Valor de venda (diferente do preço de compra)
+  usable      Boolean    @default(true)
+  stackable   Boolean    @default(true)
+  maxStack    Int?       // Limite de stack (null = sem limite)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  inventoryItems  InventoryItem[]
+  shopItems       Shop[]
+  transactionLogs TransactionLog[]
+  
+  @@index([rarity])
+  @@index([type])
+  @@index([name])
+  @@map("items")
+}
+
+// ============================
+// 📈 SISTEMA DE EXPERIÊNCIA E NÍVEIS
+// ============================
+model LevelConfig {
+  level Int @id
+  xpRequired Int
+  rewards String? // JSON string com recompensas do nível
+  
+  @@map("level_configs")
+}
+
+// ============================
+// 🏪 SISTEMA DE LOJA (OPCIONAL)
+// ============================
+model Shop {
+  id      String @id @default(cuid())
+  guildId String
+  itemId  String
+  price   Int
+  stock   Int?   // null = estoque infinito
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  item  Item  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  @@unique([guildId, itemId])
+  @@index([guildId])
+  @@map("shops")
+}
+
+// ============================
+// 📊 LOGS E AUDITORIA
+// ============================
+model TransactionLog {
+  id        String   @id @default(cuid())
+  memberId  String
+  guildId   String
+  type      String   // "buy", "sell", "use", "transfer", "admin"
+  itemId    String?
+  quantity  Int?
+  amount    Int?     // Valor em dinheiro
+  reason    String?
+  
+  createdAt DateTime @default(now())
+  
+  // Relações
+  member Member @relation(fields: [memberId, guildId], references: [id, guildId], onDelete: Cascade)
+  item   Item?  @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  
+  @@index([memberId, guildId])
+  @@index([createdAt])
+  @@index([type])
+  @@map("transaction_logs")
 }

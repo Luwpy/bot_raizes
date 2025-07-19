@@ -1,11 +1,14 @@
 import { setupMenu } from "./setup.js";
-import { xpMenu } from "./xp.js";
+import { profileMenu } from "./profile.js";
+import { simpleTabsMenu } from "./tabs.js";
 
 export const menus = {
   setup: {
     main: setupMenu,
   },
-  xp: {
-    profile: xpMenu,
+  profile: {
+    main: profileMenu,
   },
+
+  tabs: simpleTabsMenu,
 };

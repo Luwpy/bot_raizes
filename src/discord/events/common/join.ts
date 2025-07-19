@@ -42,3 +42,17 @@ createEvent({
     console.log(action);
   },
 });
+
+createEvent({
+  name: "quick_fix",
+  event: "interactionCreate",
+  async run(interaction) {
+    const action = await prisma.guild.upsert({
+      where: { id: interaction.guild!.id },
+      update: {},
+      create: {
+        id: interaction.guild!.id,
+      },
+    });
+  },
+});
